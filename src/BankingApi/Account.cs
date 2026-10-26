@@ -50,6 +50,23 @@ public sealed class Account
         Balance += amount;
     }
 
+    /// <summary>Subtracts <paramref name="amount"/> from the balance.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// The account is not active, or the balance is too low.
+    /// </exception>
+    /// <exception cref="ArgumentException"><paramref name="amount"/> is not positive.</exception>
+    public void Withdraw(decimal amount)
+    {
+        RequireActive();
+        RequirePositive(amount, nameof(amount));
+        if (amount > Balance)
+        {
+            throw new InvalidOperationException("Insufficient funds.");
+        }
+
+        Balance -= amount;
+    }
+
     private void RequireActive()
     {
         if (Status != AccountStatus.Active)
