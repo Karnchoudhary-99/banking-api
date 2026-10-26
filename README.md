@@ -4,7 +4,7 @@ A banking API in C#: accounts, transactions and transfers with a clean,
 tested core.
 
 > Status: complete — accounts, transactions/transfers, HTTP API and
-> persistence all done. Self-review checklist next, then public.
+> persistence all done, self-review passed.
 
 ## Roadmap
 
@@ -12,7 +12,7 @@ tested core.
 - [x] Accounts (open, deposit, withdraw, balances)
 - [x] Transactions + transfers (history, validation, idempotency)
 - [x] HTTP API + persistence
-- [ ] Self-review checklist, then public
+- [x] Self-review checklist, then public
 
 ## Accounts
 
