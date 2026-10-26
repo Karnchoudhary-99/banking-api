@@ -3,14 +3,15 @@
 A banking API in C#: accounts, transactions and transfers with a clean,
 tested core.
 
-> Status: accounts and transactions/transfers done; HTTP API next.
+> Status: complete — accounts, transactions/transfers, HTTP API and
+> persistence all done. Self-review checklist next, then public.
 
 ## Roadmap
 
 - [x] Project scaffold (.NET 8 solution, CI, README)
 - [x] Accounts (open, deposit, withdraw, balances)
 - [x] Transactions + transfers (history, validation, idempotency)
-- [ ] HTTP API + persistence
+- [x] HTTP API + persistence
 - [ ] Self-review checklist, then public
 
 ## Accounts
@@ -69,6 +70,55 @@ transfer leaves both accounts and both ledgers untouched:
 - A rejected operation records nothing. Note that the ledger only covers
   operations made through `Bank` — calling `Deposit`/`Withdraw` directly
   on an `Account` bypasses it.
+
+## HTTP API
+
+`BankingApi.Server` is a thin ASP.NET Core adapter over `ApiService`
+(the same logic the unit tests exercise directly, no sockets needed):
+
+```sh
+dotnet run --project src/BankingApi.Server        # http://localhost:5000
+dotnet run --project src/BankingApi.Server -- --data data/bank.json
+```
+
+| Method | Path | Body / notes |
+| --- | --- | --- |
+| GET | `/health` | `{"status":"ok"}` |
+| POST | `/accounts` | `{"owner":"Asha","initialBalance":100}` → 201 |
+| GET | `/accounts` | all accounts, by owner |
+| GET | `/accounts/{id}` | one account |
+| POST | `/accounts/{id}/deposit` | `{"amount":25.50}` |
+| POST | `/accounts/{id}/withdraw` | `{"amount":20}` |
+| POST | `/accounts/{id}/freeze` | |
+| POST | `/accounts/{id}/unfreeze` | |
+| POST | `/accounts/{id}/close` | zero balance required |
+| GET | `/accounts/{id}/statement` | ledger, oldest first |
+| POST | `/transfers` | `{"fromAccountId":"…","toAccountId":"…","amount":30}`; repeat with the same `Idempotency-Key` header to replay safely |
+
+Status codes: 200 on reads and actions, 201 on account creation,
+400 for invalid input (bad JSON, missing fields, non-positive amounts),
+404 for unknown accounts, 409 for rejected state changes (insufficient
+funds, frozen account, close with a balance, idempotency key reused for
+a different transfer). Errors are `{"error":"…"}`.
+
+`examples/api.sh` runs the whole tour against a live server — account
+creation, deposit, an idempotent transfer sent twice (money moves once),
+statement and listing.
+
+## Persistence
+
+State lives in one versioned JSON file (`bank.json` by default,
+`--data <path>` to override): accounts with balances and statuses,
+every per-account ledger entry, and idempotency keys. The server loads
+it on start and saves after every successful mutation, so a restart
+keeps balances and never replays a transfer. `JsonBankStore` in the core
+library does the save/load; its round-trip is covered by tests,
+including idempotency-key survival across a restart.
+
+Honest limits: requests are serialized through a single lock and state
+is one JSON file — this is a single-node MVP, not a concurrent banking
+backend. There is no authentication on the API, so do not expose it to
+an untrusted network.
 
 ## Quick start
 
