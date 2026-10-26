@@ -58,8 +58,51 @@ public sealed class Bank
     /// <summary>Closes the account with the given id (requires a zero balance).</summary>
     public void CloseAccount(Guid id) => GetAccount(id).Close();
 
-    /// <summary>All registered accounts, including frozen and closed ones.</summary>
+    /// <summary>
+    /// All registered accounts, including frozen and closed ones.</summary>
     public IReadOnlyCollection<Account> ListAccounts() => _accounts.Values.ToArray();
+
+    /// <summary>
+    /// The idempotency keys recorded so far, mapped to their transfers.
+    /// Used by the snapshot store so a restarted server still recognises
+    /// repeated transfers instead of moving the money twice.
+    /// </summary>
+    public IReadOnlyDictionary<string, Transfer> IdempotencyTransfers() =>
+        new Dictionary<string, Transfer>(_transfersByKey);
+
+    /// <summary>
+    /// Restores one persisted account together with its ledger, in the
+    /// order given. For the JSON snapshot store only.
+    /// </summary>
+    public void RestoreAccount(Account account, IReadOnlyList<Transaction> transactions)
+    {
+        if (_accounts.ContainsKey(account.Id))
+        {
+            throw new InvalidOperationException($"Account {account.Id} is already registered.");
+        }
+
+        foreach (var entry in transactions)
+        {
+            if (entry.AccountId != account.Id)
+            {
+                throw new ArgumentException("Ledger entries must belong to the restored account.", nameof(transactions));
+            }
+        }
+
+        _accounts.Add(account.Id, account);
+        _transactions.Add(account.Id, transactions.ToList());
+    }
+
+    /// <summary>Restores one persisted idempotency key. For the snapshot store only.</summary>
+    public void RestoreIdempotencyKey(string key, Transfer transfer)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new ArgumentException("Idempotency key must not be empty.", nameof(key));
+        }
+
+        _transfersByKey.Add(key, transfer);
+    }
 
     /// <summary>
     /// The ledger for one account, oldest first. A copy, so callers cannot
