@@ -25,6 +25,39 @@ public sealed class Account
         Status = AccountStatus.Active;
     }
 
+    /// <summary>
+    /// Rebuilds an account exactly as persisted (id, balance and status
+    /// included). For the JSON snapshot store only — new accounts always
+    /// go through <see cref="Bank.OpenAccount"/>.
+    /// </summary>
+    public static Account Restore(Guid id, string owner, decimal balance, AccountStatus status)
+    {
+        if (string.IsNullOrWhiteSpace(owner))
+        {
+            throw new ArgumentException("Owner must not be empty.", nameof(owner));
+        }
+
+        if (balance < 0)
+        {
+            throw new ArgumentException("Balance must not be negative.", nameof(balance));
+        }
+
+        if (!Enum.IsDefined(status))
+        {
+            throw new ArgumentException($"Unknown account status {status}.", nameof(status));
+        }
+
+        return new Account(id, owner, balance, status);
+    }
+
+    private Account(Guid id, string owner, decimal balance, AccountStatus status)
+    {
+        Id = id;
+        Owner = owner;
+        Balance = balance;
+        Status = status;
+    }
+
     /// <summary>Unique identifier for this account.</summary>
     public Guid Id { get; }
 

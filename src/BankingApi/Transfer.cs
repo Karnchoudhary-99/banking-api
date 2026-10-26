@@ -20,6 +20,29 @@ public sealed class Transfer
         Timestamp = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>
+    /// Rebuilds a transfer exactly as persisted (id and timestamp
+    /// included). For the JSON snapshot store only.
+    /// </summary>
+    public static Transfer Restore(Guid id, Guid fromAccountId, Guid toAccountId, decimal amount, DateTimeOffset timestamp)
+    {
+        if (amount <= 0)
+        {
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+        }
+
+        return new Transfer(id, fromAccountId, toAccountId, amount, timestamp);
+    }
+
+    private Transfer(Guid id, Guid fromAccountId, Guid toAccountId, decimal amount, DateTimeOffset timestamp)
+    {
+        Id = id;
+        FromAccountId = fromAccountId;
+        ToAccountId = toAccountId;
+        Amount = amount;
+        Timestamp = timestamp;
+    }
+
     /// <summary>Shared identifier, also recorded on both ledger entries.</summary>
     public Guid Id { get; }
 

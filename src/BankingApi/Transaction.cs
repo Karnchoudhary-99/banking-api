@@ -36,6 +36,58 @@ public sealed class Transaction
         TransferId = transferId;
     }
 
+    /// <summary>
+    /// Rebuilds a ledger entry exactly as persisted (id and timestamp
+    /// included). For the JSON snapshot store only.
+    /// </summary>
+    public static Transaction Restore(
+        Guid id,
+        Guid accountId,
+        TransactionKind kind,
+        decimal amount,
+        decimal balanceAfter,
+        DateTimeOffset timestamp,
+        Guid? relatedAccountId = null,
+        Guid? transferId = null)
+    {
+        if (amount <= 0)
+        {
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+        }
+
+        if (balanceAfter < 0)
+        {
+            throw new ArgumentException("Balance after must not be negative.", nameof(balanceAfter));
+        }
+
+        if (!Enum.IsDefined(kind))
+        {
+            throw new ArgumentException($"Unknown transaction kind {kind}.", nameof(kind));
+        }
+
+        return new Transaction(id, accountId, kind, amount, balanceAfter, timestamp, relatedAccountId, transferId);
+    }
+
+    private Transaction(
+        Guid id,
+        Guid accountId,
+        TransactionKind kind,
+        decimal amount,
+        decimal balanceAfter,
+        DateTimeOffset timestamp,
+        Guid? relatedAccountId,
+        Guid? transferId)
+    {
+        Id = id;
+        AccountId = accountId;
+        Kind = kind;
+        Amount = amount;
+        BalanceAfter = balanceAfter;
+        Timestamp = timestamp;
+        RelatedAccountId = relatedAccountId;
+        TransferId = transferId;
+    }
+
     /// <summary>Unique identifier for this entry.</summary>
     public Guid Id { get; }
 
