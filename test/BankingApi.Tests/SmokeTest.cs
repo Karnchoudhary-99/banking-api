@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace BankingApi.Tests;
 
 public class SmokeTest
