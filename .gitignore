@@ -1,0 +1,10 @@
+# Build outputs
+bin/
+obj/
+out/
+# Visual Studio
+.vs/
+*.user
+*.suo
+# OS
+.DS_Store
