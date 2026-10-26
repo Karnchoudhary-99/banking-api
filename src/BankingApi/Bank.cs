@@ -25,6 +25,21 @@ public sealed class Bank
         return account;
     }
 
+    /// <summary>Deposits into the account with the given id.</summary>
+    public void Deposit(Guid id, decimal amount) => GetAccount(id).Deposit(amount);
+
+    /// <summary>Withdraws from the account with the given id.</summary>
+    public void Withdraw(Guid id, decimal amount) => GetAccount(id).Withdraw(amount);
+
+    /// <summary>Freezes the account with the given id.</summary>
+    public void Freeze(Guid id) => GetAccount(id).Freeze();
+
+    /// <summary>Unfreezes the account with the given id.</summary>
+    public void Unfreeze(Guid id) => GetAccount(id).Unfreeze();
+
+    /// <summary>Closes the account with the given id (requires a zero balance).</summary>
+    public void CloseAccount(Guid id) => GetAccount(id).Close();
+
     /// <summary>All registered accounts, including frozen and closed ones.</summary>
     public IReadOnlyCollection<Account> ListAccounts() => _accounts.Values.ToArray();
 }
