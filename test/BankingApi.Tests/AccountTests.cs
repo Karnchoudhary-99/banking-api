@@ -81,4 +81,47 @@ public class AccountTests
         Assert.Throws<InvalidOperationException>(() => account.Withdraw(100.01m));
         Assert.Equal(100m, account.Balance);
     }
+
+    [Fact]
+    public void FrozenAccountRejectsDepositsAndWithdrawals()
+    {
+        var account = new Account("Asha", 100m);
+        account.Freeze();
+        Assert.Equal(AccountStatus.Frozen, account.Status);
+        Assert.False(account.IsActive);
+        Assert.Throws<InvalidOperationException>(() => account.Deposit(10m));
+        Assert.Throws<InvalidOperationException>(() => account.Withdraw(10m));
+        Assert.Equal(100m, account.Balance);
+    }
+
+    [Fact]
+    public void UnfreezeRestoresOperations()
+    {
+        var account = new Account("Asha", 100m);
+        account.Freeze();
+        account.Unfreeze();
+        Assert.Equal(AccountStatus.Active, account.Status);
+        account.Deposit(10m);
+        Assert.Equal(110m, account.Balance);
+    }
+
+    [Fact]
+    public void CloseRequiresZeroBalance()
+    {
+        var account = new Account("Asha", 100m);
+        Assert.Throws<InvalidOperationException>(() => account.Close());
+        Assert.Equal(AccountStatus.Active, account.Status);
+    }
+
+    [Fact]
+    public void ClosedAccountRejectsAllOperations()
+    {
+        var account = new Account("Asha", 0m);
+        account.Close();
+        Assert.Equal(AccountStatus.Closed, account.Status);
+        Assert.Throws<InvalidOperationException>(() => account.Deposit(10m));
+        Assert.Throws<InvalidOperationException>(() => account.Withdraw(10m));
+        Assert.Throws<InvalidOperationException>(() => account.Freeze());
+        Assert.Throws<InvalidOperationException>(() => account.Unfreeze());
+    }
 }
