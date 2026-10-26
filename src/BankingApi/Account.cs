@@ -39,4 +39,30 @@ public sealed class Account
 
     /// <summary>True only while the account is open for deposits and withdrawals.</summary>
     public bool IsActive => Status == AccountStatus.Active;
+
+    /// <summary>Adds <paramref name="amount"/> to the balance.</summary>
+    /// <exception cref="InvalidOperationException">The account is not active.</exception>
+    /// <exception cref="ArgumentException"><paramref name="amount"/> is not positive.</exception>
+    public void Deposit(decimal amount)
+    {
+        RequireActive();
+        RequirePositive(amount, nameof(amount));
+        Balance += amount;
+    }
+
+    private void RequireActive()
+    {
+        if (Status != AccountStatus.Active)
+        {
+            throw new InvalidOperationException($"Account is {Status}; only active accounts accept operations.");
+        }
+    }
+
+    private static void RequirePositive(decimal amount, string name)
+    {
+        if (amount <= 0)
+        {
+            throw new ArgumentException("Amount must be positive.", name);
+        }
+    }
 }
