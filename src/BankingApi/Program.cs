@@ -12,4 +12,10 @@ foreach (var account in bank.ListAccounts())
     Console.WriteLine($"{account.Owner}: {account.Balance} ({account.Status})");
 }
 
-Console.WriteLine("Transactions and transfers coming next.");
+var transfer = bank.Transfer(asha.Id, rahul.Id, 30m, "demo-transfer-1");
+Console.WriteLine($"Transferred {transfer.Amount} from Asha to Rahul (id {transfer.Id}).");
+Console.WriteLine("Asha's statement:");
+foreach (var entry in bank.GetTransactions(asha.Id))
+{
+    Console.WriteLine($"  {entry.Kind} {entry.Amount} -> balance {entry.BalanceAfter}");
+}
