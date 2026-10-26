@@ -1,15 +1,23 @@
 namespace BankingApi;
 
-/// <summary>In-memory registry of accounts: the single place accounts are created and looked up.</summary>
+/// <summary>
+/// In-memory registry of accounts: the single place accounts are created and
+/// looked up. It also owns the transaction ledger: every Bank-mediated
+/// deposit, withdrawal and transfer is recorded, in order, per account, and
+/// a rejected operation records nothing.
+/// </summary>
 public sealed class Bank
 {
     private readonly Dictionary<Guid, Account> _accounts = new();
+    private readonly Dictionary<Guid, List<Transaction>> _transactions = new();
+    private readonly Dictionary<string, Transfer> _transfersByKey = new();
 
     /// <summary>Opens a new account and registers it.</summary>
     public Account OpenAccount(string owner, decimal initialBalance = 0)
     {
         var account = new Account(owner, initialBalance);
         _accounts.Add(account.Id, account);
+        _transactions.Add(account.Id, new List<Transaction>());
         return account;
     }
 
@@ -25,11 +33,21 @@ public sealed class Bank
         return account;
     }
 
-    /// <summary>Deposits into the account with the given id.</summary>
-    public void Deposit(Guid id, decimal amount) => GetAccount(id).Deposit(amount);
+    /// <summary>Deposits into the account with the given id and records the entry.</summary>
+    public void Deposit(Guid id, decimal amount)
+    {
+        var account = GetAccount(id);
+        account.Deposit(amount);
+        Record(account, TransactionKind.Deposit, amount);
+    }
 
-    /// <summary>Withdraws from the account with the given id.</summary>
-    public void Withdraw(Guid id, decimal amount) => GetAccount(id).Withdraw(amount);
+    /// <summary>Withdraws from the account with the given id and records the entry.</summary>
+    public void Withdraw(Guid id, decimal amount)
+    {
+        var account = GetAccount(id);
+        account.Withdraw(amount);
+        Record(account, TransactionKind.Withdrawal, amount);
+    }
 
     /// <summary>Freezes the account with the given id.</summary>
     public void Freeze(Guid id) => GetAccount(id).Freeze();
@@ -42,4 +60,96 @@ public sealed class Bank
 
     /// <summary>All registered accounts, including frozen and closed ones.</summary>
     public IReadOnlyCollection<Account> ListAccounts() => _accounts.Values.ToArray();
+
+    /// <summary>
+    /// The ledger for one account, oldest first. A copy, so callers cannot
+    /// rewrite history.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">No account with that id exists.</exception>
+    public IReadOnlyList<Transaction> GetTransactions(Guid id)
+    {
+        GetAccount(id);
+        return _transactions[id].ToArray();
+    }
+
+    /// <summary>
+    /// Moves <paramref name="amount"/> from one account to another, recording
+    /// a linked TransferOut/TransferIn pair. Every check runs before any
+    /// balance changes, so a rejected transfer leaves both accounts and
+    /// both ledgers untouched.
+    /// </summary>
+    /// <param name="idempotencyKey">
+    /// Optional caller-supplied key: repeating a transfer with the same key
+    /// returns the original result instead of moving the money twice.
+    /// Reusing a key for a different transfer is rejected.
+    /// </param>
+    /// <exception cref="KeyNotFoundException">Either account id is unknown.</exception>
+    /// <exception cref="ArgumentException">
+    /// The accounts are the same, or the amount is not positive.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// An account is not active, the source balance is too low, or the
+    /// idempotency key was already used for a different transfer.
+    /// </exception>
+    public Transfer Transfer(Guid fromAccountId, Guid toAccountId, decimal amount, string? idempotencyKey = null)
+    {
+        if (idempotencyKey is not null && _transfersByKey.TryGetValue(idempotencyKey, out var existing))
+        {
+            if (existing.FromAccountId != fromAccountId
+                || existing.ToAccountId != toAccountId
+                || existing.Amount != amount)
+            {
+                throw new InvalidOperationException("Idempotency key was already used for a different transfer.");
+            }
+
+            return existing;
+        }
+
+        if (fromAccountId == toAccountId)
+        {
+            throw new ArgumentException("Cannot transfer to the same account.", nameof(toAccountId));
+        }
+
+        if (amount <= 0)
+        {
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+        }
+
+        var from = GetAccount(fromAccountId);
+        var to = GetAccount(toAccountId);
+
+        if (!from.IsActive)
+        {
+            throw new InvalidOperationException($"Source account is {from.Status}; only active accounts accept operations.");
+        }
+
+        if (!to.IsActive)
+        {
+            throw new InvalidOperationException($"Destination account is {to.Status}; only active accounts accept operations.");
+        }
+
+        if (amount > from.Balance)
+        {
+            throw new InvalidOperationException("Insufficient funds.");
+        }
+
+        var transferId = Guid.NewGuid();
+        from.Withdraw(amount);
+        Record(from, TransactionKind.TransferOut, amount, to.Id, transferId);
+        to.Deposit(amount);
+        Record(to, TransactionKind.TransferIn, amount, from.Id, transferId);
+
+        var transfer = new Transfer(transferId, fromAccountId, toAccountId, amount);
+        if (idempotencyKey is not null)
+        {
+            _transfersByKey.Add(idempotencyKey, transfer);
+        }
+
+        return transfer;
+    }
+
+    private void Record(Account account, TransactionKind kind, decimal amount, Guid? relatedAccountId = null, Guid? transferId = null)
+    {
+        _transactions[account.Id].Add(new Transaction(account.Id, kind, amount, account.Balance, relatedAccountId, transferId));
+    }
 }
