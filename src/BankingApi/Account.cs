@@ -67,6 +67,42 @@ public sealed class Account
         Balance -= amount;
     }
 
+    /// <summary>Temporarily blocks deposits and withdrawals. Closed accounts cannot be frozen.</summary>
+    public void Freeze()
+    {
+        if (Status == AccountStatus.Closed)
+        {
+            throw new InvalidOperationException("A closed account cannot be frozen.");
+        }
+
+        Status = AccountStatus.Frozen;
+    }
+
+    /// <summary>Restores a frozen account to active. Closed accounts cannot be unfrozen.</summary>
+    public void Unfreeze()
+    {
+        if (Status == AccountStatus.Closed)
+        {
+            throw new InvalidOperationException("A closed account cannot be unfrozen.");
+        }
+
+        Status = AccountStatus.Active;
+    }
+
+    /// <summary>
+    /// Permanently closes the account. Only possible with a zero balance, so
+    /// money can never be stranded in a closed account.
+    /// </summary>
+    public void Close()
+    {
+        if (Balance != 0)
+        {
+            throw new InvalidOperationException("Cannot close an account with a non-zero balance.");
+        }
+
+        Status = AccountStatus.Closed;
+    }
+
     private void RequireActive()
     {
         if (Status != AccountStatus.Active)
